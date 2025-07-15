@@ -1,7 +1,19 @@
+import { useState } from "react";
 import "./App.css";
 
 function App() {
-  return <p>Hello World</p>;
+  const [searchText, setSearchText] = useState("");
+
+  const handleSearch = (event) => {
+    setSearchText(event.target.value);
+  };
+
+  return (
+    <div>
+      <h1>Nested Search Bar</h1>
+      <input type="text" value={searchText} onChange={handleSearch} />
+    </div>
+  );
 }
 
 export default App;
