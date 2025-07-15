@@ -16,6 +16,12 @@ function App() {
     );
   };
 
+  const toCamelCase = (str) => {
+    return str
+      .toLowerCase()
+      .replace(/\s+(\w)/g, (_, letter) => letter.toUpperCase());
+  };
+
   useEffect(() => {
     setStateSearchData(searchData);
   }, []);
@@ -30,6 +36,12 @@ function App() {
       const bcState = [...breadcrumbs, item.value];
       setBreadcrumbs(bcState);
       setTrail([...trail, index]);
+      const pathParts = [
+        "root",
+        ...breadcrumbs.slice(1).map(toCamelCase),
+        toCamelCase(item.value),
+      ];
+      setSearchText(`{${pathParts.join(".")}}`);
     }
   };
 
@@ -42,11 +54,16 @@ function App() {
     } else {
       data = stateSearchData;
       const trailSlice = trail.slice(0, index);
+      setTrail(trailSlice);
       const nestedValue = getNestedValue(searchData, trailSlice);
       data = nestedValue?.children || [];
-      setTrail(trailSlice);
     }
     setBreadcrumbs(breadcrumbs.slice(0, index + 1));
+    const pathParts = [
+      "root",
+      ...breadcrumbs.slice(1, index + 1).map(toCamelCase),
+    ];
+    setSearchText(`{${pathParts.join(".")}}`);
     setStateSearchData(data);
   };
 
