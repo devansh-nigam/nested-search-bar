@@ -1,6 +1,77 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import "./App.css";
 import searchData from "./mocks/searchData";
+
+// Modal component moved outside to prevent re-creation on every render
+const Modal = ({
+  isOpen,
+  onClose,
+  newResourceData,
+  onInputChange,
+  onAddResource,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Add New Resource</h2>
+          <button className="modal-close" onClick={onClose}>
+            ×
+          </button>
+        </div>
+
+        <div className="modal-body">
+          <div className="form-group">
+            <label htmlFor="resourceName">Resource Name</label>
+            <input
+              id="resourceName"
+              type="text"
+              value={newResourceData.value}
+              onChange={(e) => onInputChange("value", e.target.value)}
+              placeholder="Enter resource name..."
+              className="modal-input"
+              autoFocus
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="resourceType">Type</label>
+            <select
+              id="resourceType"
+              value={newResourceData.type}
+              onChange={(e) => onInputChange("type", e.target.value)}
+              className="modal-select"
+            >
+              <option value="resource">Resource (can have children)</option>
+              <option value="endpoint">Endpoint (final item)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Location</label>
+            <div className="location-display">
+              {newResourceData.parentPath.join(" › ")}
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="modal-btn modal-btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="modal-btn modal-btn-primary"
+            onClick={onAddResource}
+          >
+            Add Resource
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 function App() {
   const [searchText, setSearchText] = useState("");
@@ -8,21 +79,27 @@ function App() {
   const [breadcrumbs, setBreadcrumbs] = useState(["All resources"]);
   const [trail, setTrail] = useState([]);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newResourceData, setNewResourceData] = useState({
+    value: "",
+    type: "resource",
+    parentPath: [],
+  });
   const searchContainerRef = useRef(null);
 
-  const getNestedValue = (obj, indexes) => {
+  const getNestedValue = useCallback((obj, indexes) => {
     return indexes.reduce(
       (current, index, i) =>
         i === 0 ? current?.[index] : current?.children?.[index],
       obj
     );
-  };
+  }, []);
 
-  const toCamelCase = (str) => {
+  const toCamelCase = useCallback((str) => {
     return str
       .toLowerCase()
       .replace(/\s+(\w)/g, (_, letter) => letter.toUpperCase());
-  };
+  }, []);
 
   useEffect(() => {
     setStateSearchData(searchData);
@@ -31,6 +108,12 @@ function App() {
   // Handle clicks outside the search container
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Don't close if modal is open
+      if (isModalOpen) {
+        return;
+      }
+
+      // Check if click is outside search container
       if (
         searchContainerRef.current &&
         !searchContainerRef.current.contains(event.target)
@@ -46,59 +129,135 @@ function App() {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isInputFocused]);
+  }, [isInputFocused, isModalOpen]);
 
-  const handleSearch = (event) => {
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape" && isModalOpen) {
+        closeModal();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isModalOpen]);
+
+  const handleSearch = useCallback((event) => {
     setSearchText(event.target.value);
-  };
+  }, []);
 
-  const handleInputFocus = () => {
+  const handleInputFocus = useCallback(() => {
     setIsInputFocused(true);
-  };
+  }, []);
 
-  const handleSearchItem = (item, index) => {
-    if (item.type === "resource") {
-      setStateSearchData(item.children);
-      const bcState = [...breadcrumbs, item.value];
-      setBreadcrumbs(bcState);
-      setTrail([...trail, index]);
+  const handleSearchItem = useCallback(
+    (item, index) => {
+      if (item.type === "resource") {
+        setStateSearchData(item.children);
+        const bcState = [...breadcrumbs, item.value];
+        setBreadcrumbs(bcState);
+        setTrail([...trail, index]);
+        const pathParts = [
+          "root",
+          ...breadcrumbs.slice(1).map(toCamelCase),
+          toCamelCase(item.value),
+        ];
+        setSearchText(`{${pathParts.join(".")}}`);
+      }
+    },
+    [breadcrumbs, trail, toCamelCase]
+  );
+
+  const handleBreadcrumb = useCallback(
+    (index) => {
+      let data;
+      if (index === 0) {
+        data = searchData;
+        setTrail([]);
+        setSearchText("");
+      } else {
+        data = stateSearchData;
+        const trailSlice = trail.slice(0, index);
+        setTrail(trailSlice);
+        const nestedValue = getNestedValue(searchData, trailSlice);
+        data = nestedValue?.children || [];
+      }
+      setBreadcrumbs(breadcrumbs.slice(0, index + 1));
       const pathParts = [
         "root",
-        ...breadcrumbs.slice(1).map(toCamelCase),
-        toCamelCase(item.value),
+        ...breadcrumbs.slice(1, index + 1).map(toCamelCase),
       ];
       setSearchText(`{${pathParts.join(".")}}`);
+      setStateSearchData(data);
+    },
+    [breadcrumbs, trail, stateSearchData, getNestedValue, toCamelCase]
+  );
+
+  const openModal = useCallback(() => {
+    setNewResourceData({
+      value: "",
+      type: "resource",
+      parentPath: [...breadcrumbs],
+    });
+    setIsModalOpen(true);
+    // Keep the search container open when modal opens
+    setIsInputFocused(true);
+  }, [breadcrumbs]);
+
+  const closeModal = useCallback(() => {
+    setIsModalOpen(false);
+    setNewResourceData({
+      value: "",
+      type: "resource",
+      parentPath: [],
+    });
+  }, []);
+
+  const handleModalInputChange = useCallback((field, value) => {
+    setNewResourceData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const addNewResource = useCallback(() => {
+    if (!newResourceData.value.trim()) {
+      alert("Please enter a resource name");
+      return;
     }
-  };
 
-  const handleBreadcrumb = (index) => {
-    let data;
-    if (index === 0) {
-      data = searchData;
-      setTrail([]);
-      setSearchText("");
-    } else {
-      data = stateSearchData;
-      const trailSlice = trail.slice(0, index);
-      setTrail(trailSlice);
-      const nestedValue = getNestedValue(searchData, trailSlice);
-      data = nestedValue?.children || [];
+    const newResource = {
+      id: Date.now(), // Simple ID generation
+      type: newResourceData.type,
+      value: newResourceData.value.trim(),
+      children: newResourceData.type === "resource" ? [] : undefined,
+    };
+
+    // Add to the current level
+    const updatedData = [...stateSearchData, newResource];
+    setStateSearchData(updatedData);
+
+    // Update the main searchData if we're at the root level
+    if (breadcrumbs.length === 1) {
+      // This would need to be handled differently in a real app
+      // For now, we'll just update the local state
+      console.log("New resource added:", newResource);
     }
-    setBreadcrumbs(breadcrumbs.slice(0, index + 1));
-    const pathParts = [
-      "root",
-      ...breadcrumbs.slice(1, index + 1).map(toCamelCase),
-    ];
-    setSearchText(`{${pathParts.join(".")}}`);
-    setStateSearchData(data);
-  };
 
-  const handleNewResource = () => {
-    // TODO: Implement new resource functionality
-    console.log("Add new resource clicked");
-  };
+    closeModal();
+  }, [newResourceData, stateSearchData, breadcrumbs.length, closeModal]);
 
-  const SearchSection = () => {
+  const handleNewResource = useCallback(() => {
+    openModal();
+  }, [openModal]);
+
+  const SearchSection = useCallback(() => {
     if (!isInputFocused) return null;
 
     return (
@@ -150,7 +309,14 @@ function App() {
         </button>
       </div>
     );
-  };
+  }, [
+    isInputFocused,
+    breadcrumbs,
+    stateSearchData,
+    handleBreadcrumb,
+    handleSearchItem,
+    handleNewResource,
+  ]);
 
   return (
     <div className="app-container">
@@ -178,6 +344,14 @@ function App() {
         </div>
         <SearchSection />
       </div>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        newResourceData={newResourceData}
+        onInputChange={handleModalInputChange}
+        onAddResource={addNewResource}
+      />
     </div>
   );
 }
