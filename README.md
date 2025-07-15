@@ -21,6 +21,14 @@ A modern, interactive React application that provides a hierarchical search expe
 
 ![Draft 2 Demo](./gif/Draft2.gif)
 
+### 📹 Video Demo
+
+Watch the complete walkthrough of the Nested Search Bar application:
+
+[![YouTube Demo](https://img.shields.io/badge/YouTube-Watch%20Demo-red?style=for-the-badge&logo=youtube)](https://youtu.be/z9Evr3K8qno)
+
+**Direct Link**: [https://youtu.be/z9Evr3K8qno](https://youtu.be/z9Evr3K8qno)
+
 ## 🚀 Getting Started
 
 ### Prerequisites
