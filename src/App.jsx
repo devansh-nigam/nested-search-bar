@@ -6,6 +6,15 @@ function App() {
   const [searchText, setSearchText] = useState("");
   const [stateSearchData, setStateSearchData] = useState();
   const [breadcrumbs, setBreadcrumbs] = useState(["All resources"]);
+  const [trail, setTrail] = useState([]);
+
+  const getNestedValue = (obj, indexes) => {
+    return indexes.reduce(
+      (current, index, i) =>
+        i === 0 ? current?.[index] : current?.children?.[index],
+      obj
+    );
+  };
 
   useEffect(() => {
     setStateSearchData(searchData);
@@ -15,11 +24,12 @@ function App() {
     setSearchText(event.target.value);
   };
 
-  const handleSearchItem = (item) => {
+  const handleSearchItem = (item, index) => {
     if (item.type === "resource") {
       setStateSearchData(item.children);
       const bcState = [...breadcrumbs, item.value];
       setBreadcrumbs(bcState);
+      setTrail([...trail, index]);
     }
   };
 
@@ -27,9 +37,14 @@ function App() {
     let data;
     if (index === 0) {
       data = searchData;
+      setTrail([]);
       setSearchText("");
     } else {
       data = stateSearchData;
+      const trailSlice = trail.slice(0, index);
+      const nestedValue = getNestedValue(searchData, trailSlice);
+      data = nestedValue?.children || [];
+      setTrail(trailSlice);
     }
     setBreadcrumbs(breadcrumbs.slice(0, index + 1));
     setStateSearchData(data);
@@ -57,7 +72,7 @@ function App() {
                 <div
                   key={index}
                   className="search-item"
-                  onClick={() => handleSearchItem(item)}
+                  onClick={() => handleSearchItem(item, index)}
                 >
                   {item.value}
                   <span>{item.type === "resource" ? ">" : ""}</span>
