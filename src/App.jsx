@@ -111,6 +111,7 @@ function App() {
         value={searchText}
         onChange={handleSearch}
         placeholder="Enter value or search resources..."
+        style={{ width: "100%" }}
       />
       <SearchSection />
     </div>
