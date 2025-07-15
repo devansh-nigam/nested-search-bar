@@ -14,6 +14,12 @@ function App() {
     setSearchText(event.target.value);
   };
 
+  const handleSearchItem = (item) => {
+    if (item.type === "resource") {
+      setStateSearchData(item.children);
+    }
+  };
+
   const SearchSection = () => {
     return (
       <div>
@@ -22,7 +28,16 @@ function App() {
             <div>No data found</div>
           ) : (
             stateSearchData?.map((item, index) => {
-              return <div key={index}>{item.value}</div>;
+              return (
+                <div
+                  key={index}
+                  className="search-item"
+                  onClick={() => handleSearchItem(item)}
+                >
+                  {item.value}
+                  <span>{item.type === "resource" ? ">" : ""}</span>
+                </div>
+              );
             })
           )}
         </div>
